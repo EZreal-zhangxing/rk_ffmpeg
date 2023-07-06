@@ -7,12 +7,23 @@
 - [x] 从本地拉取视频文件
 - [ ] 推流也使用硬件加速
 ## 1.安装FFMPEG
-官方ffmpeg 并没有对rockchip的硬编解码做适配，所以我选择了一个魔改版本的[ffmpeg](https://github.com/jjm2473/ffmpeg-rk/tree/enc)
+官方ffmpeg 并没有对rockchip的硬编解码做适配，所以我选择了一个魔改版本的[FFMPEG](https://github.com/jjm2473/ffmpeg-rk/tree/enc)
 
 同时需要安装如下依赖：
-- [x] install libx264
-- [x] install librga
+- [x] libx264
+- [x] [mpp](https://github.com/HermanChen/mpp)，注意：使用develop分支
+- [x] librga
+- [x] libdrm
 
+编译安装方式如下：
+```shell
+./configure --prefix=/usr/local/ --enable-shared --enable-version3 --enable-rkmpp --enable-libx264 --enable-gpl --enable-libdrm --enable-nonfree --enable-hwaccels --enable-gpl
+```
+其中我为了添加了鼠标捕获操作添加了libxcb依赖包
+
+```
+--enable-libxcb --enable-libxcb-shm --enable-libxcb-xfixes --enable-libxcb-shape 
+```
 ## 2.安装OpenCV[可选]
 读取摄像头需要用到OpenCV，如果用不到读取摄像头的操作可以选装。
 
