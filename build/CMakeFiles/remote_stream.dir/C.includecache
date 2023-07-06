@@ -1,0 +1,16 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/firefly/mpp/stream_and_remote/build/DDSMsg_GeneralMsgData.c
+DDSMsg_GeneralMsgData.h
+/home/firefly/mpp/stream_and_remote/build/DDSMsg_GeneralMsgData.h
+
+/home/firefly/mpp/stream_and_remote/build/DDSMsg_GeneralMsgData.h
+dds/ddsc/dds_public_impl.h
+/home/firefly/mpp/stream_and_remote/build/dds/ddsc/dds_public_impl.h
+

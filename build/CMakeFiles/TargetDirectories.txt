@@ -1,0 +1,6 @@
+/home/firefly/mpp/stream_and_remote/build/CMakeFiles/rebuild_cache.dir
+/home/firefly/mpp/stream_and_remote/build/CMakeFiles/edit_cache.dir
+/home/firefly/mpp/stream_and_remote/build/CMakeFiles/DDSMsg_lib_generate.dir
+/home/firefly/mpp/stream_and_remote/build/CMakeFiles/push_camera_rtmp.dir
+/home/firefly/mpp/stream_and_remote/build/CMakeFiles/remote_stream.dir
+/home/firefly/mpp/stream_and_remote/build/CMakeFiles/pullVideo.dir
