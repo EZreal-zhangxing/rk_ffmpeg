@@ -1,0 +1,2 @@
+# rk_ffmpeg
+在rockchip3588上实现用ffmpeg进行推拉流，其中拉流使用硬件加速解码
