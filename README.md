@@ -14,7 +14,9 @@
 - [x] [mpp](https://github.com/HermanChen/mpp)，注意：使用develop分支
 - [x] librga
 - [x] libdrm
-
+- [x] SDL
+  
+  
 编译安装方式如下：
 ```shell
 ./configure --prefix=/usr/local/ --enable-shared --enable-version3 --enable-rkmpp --enable-libx264 --enable-gpl --enable-libdrm --enable-nonfree --enable-hwaccels --enable-gpl
@@ -40,7 +42,7 @@ cmake .. && make -j4
 ```shell
 -nd 默认网络路径
 -n <url> 网络路径
--cn <name> 编码器
+-cn <name> 编码器名称 libx264,h264,h264_rkmpp等
 -hd 使用硬件编解码，功能有待更新
 -fps <fps> 采样帧率
 -preset <> ffmpeg编码参数
@@ -54,7 +56,7 @@ rtsp/rtmp 使用RTSP/RTMP协议，default=rtsp
 ```shell
 -nd 默认网络路径
 -n <url> 网络路径
--cn <name> 编码器
+-cn <name> 编码器名称 libx264,h264,h264_rkmpp等
 -hd 使用硬件编解码，功能有待更新
 -fps <fps> 采样帧率
 -preset <> ffmpeg编码参数
