@@ -11,23 +11,6 @@ set(CMAKE_CXX_COMPILER /usr/bin/g++)
 # set(CMAKE_CXX_FLAGS "-pipe -O2 -std=gnu++11 -Wall -W -D_REENTRANT -fPIC")
 
 message(STATUS "Project_source_dir: ${PROJECT_SOURCE_DIR}")
-include_directories(${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/Remote_Client ${PROJECT_SOURCE_DIR}/Remote_Server)
-include_directories(/usr/local/include /usr/include /usr/local/include/opencv4)
-
-# add_executable(pullVideo ${remote_client} pull_stream_with_control_keyboard_and_mouse.cpp)
-# add_executable(read_camera openCV_read_camera.cpp)
-# add_executable(read_camera test_encode.cpp)
-# add_executable(pullVideo ffmpeg_example.c)
-# add_executable(remote_stream ${remote_server} push_stream_with_control_keyboard_and_mouse.cpp)
-# add_executable(push_camera_rtmp ${remote_server} capture_screen.cpp push_stream_with_ffmpeg.cpp)
-
-# remove cyclonedds update [2023/07/06]
-add_executable(pullVideo pull_stream_with_control_keyboard_and_mouse.cpp)
-add_executable(remote_stream  push_stream_with_control_keyboard_and_mouse.cpp)
-add_executable(push_camera_rtmp capture_screen.cpp push_stream_with_ffmpeg.cpp)
-# target_link_libraries(pullVideo 
-# /usr/local/lib /usr/lib
-# -lavformat -lavcodec -lavutil -lswscale -lz -lpthread -lswresample -llzma -lm -lSDL2 -lSDL2_ttf -lopencv4)
 
 find_package(OpenCV REQUIRED)
 
@@ -41,15 +24,41 @@ message(STATUS "    version: ${OpenCV_VERSION}")
 message(STATUS "    libraries: ${OpenCV_LIBS}")
 message(STATUS "    include path: ${OpenCV_INCLUDE_DIRS}")
 
-# Find the CycloneDDS package.
+set(SYS_INCLUDE /usr/local/include/)
+set(SYS_LIB /usr/local/lib/)
+include_directories(./include ${OpenCV_DIR} ${SYS_INCLUDE})
+include_directories(${OpenCV_INCLUDE_DIRS})
+
+# remove cyclonedds update [2023/07/06]
+set(SYS_SRC ${PROJECT_SOURCE_DIR}/src)
+add_executable(pullVideo ${SYS_SRC}/pull_stream_with_control_keyboard_and_mouse.cpp)
+add_executable(remote_stream  ${SYS_SRC}/push_stream_with_control_keyboard_and_mouse.cpp)
+add_executable(push_camera_rtmp ${SYS_SRC}/capture_screen.cpp ${SYS_SRC}/push_stream_with_ffmpeg.cpp)
+
+
+# update[2023/7/26] add mpp encoder and decode
+add_executable(rtsp_send_opencv_ffmpeg ${PROJECT_SOURCE_DIR}/src/rtsp_with_ffmpeg_using_opencv.cpp)
+
+add_executable(rtsp_send_opencv_mpp ${PROJECT_SOURCE_DIR}/src/rtsp_with_mpp_using_opencv.cpp)
+
+add_executable(rtsp_send_opencv_mpp_rgb ${PROJECT_SOURCE_DIR}/src/rtsp_with_mpp_using_opencv_rgb.cpp)
 
 # file(GLOB_RECURSE self_cpps *.cpp)
 # 推送视频
 target_link_libraries(push_camera_rtmp 
--lavformat -lavcodec -lavutil -lswscale -lavdevice -lz -lpthread -lswresample -llzma -lm -lSDL2 -lSDL2_ttf -lX11 ${OpenCV_LIBS}) # DDSMsg_lib CycloneDDS::ddsc
+-lavformat -lavcodec -lavutil -lswscale -lavdevice -lz -lpthread -lswresample -llzma -lm -lSDL2 -lX11 ${OpenCV_LIBS}) # DDSMsg_lib CycloneDDS::ddsc
 
 target_link_libraries(remote_stream 
--lavformat -lavcodec -lavutil -lswscale -lavdevice -lz -lpthread -lswresample -llzma -lm -lSDL2 -lSDL2_ttf -lX11 ${OpenCV_LIBS}) # DDSMsg_lib CycloneDDS::ddsc
+-lavformat -lavcodec -lavutil -lswscale -lavdevice -lz -lpthread -lswresample -llzma -lm -lSDL2 -lX11 ${OpenCV_LIBS}) # DDSMsg_lib CycloneDDS::ddsc
 # 拉取视频流
 target_link_libraries(pullVideo
--lavformat -lavcodec -lavutil -lswscale -lavdevice -lz -lpthread -lswresample -llzma -lm -lSDL2 -lSDL2_ttf ${OpenCV_LIBS}) #  DDSMsg_lib CycloneDDS::ddsc
+-lavformat -lavcodec -lavutil -lswscale -lavdevice -lz -lpthread -lswresample -llzma -lm -lSDL2  ${OpenCV_LIBS}) #  DDSMsg_lib CycloneDDS::ddsc
+
+target_link_libraries(rtsp_send_opencv_ffmpeg 
+-lavformat -lavcodec -lavutil -lswscale -lavdevice -lz -lpthread -lswresample -llzma -lm ${OpenCV_LIBS} -lrockchip_mpp)
+
+target_link_libraries(rtsp_send_opencv_mpp 
+-lavformat -lavcodec -lavutil -lswscale -lavdevice -lz -lpthread -lswresample -llzma -lm ${OpenCV_LIBS} -lrockchip_mpp)
+
+target_link_libraries(rtsp_send_opencv_mpp_rgb
+-lavformat -lavcodec -lavutil -lswscale -lavdevice -lz -lpthread -lswresample -llzma -lm ${OpenCV_LIBS} -lrockchip_mpp)

@@ -1,0 +1,8 @@
+/home/firefly/gitclone/build/CMakeFiles/edit_cache.dir
+/home/firefly/gitclone/build/CMakeFiles/rtsp_send_opencv_mpp_rgb.dir
+/home/firefly/gitclone/build/CMakeFiles/rtsp_send_opencv_mpp.dir
+/home/firefly/gitclone/build/CMakeFiles/rebuild_cache.dir
+/home/firefly/gitclone/build/CMakeFiles/rtsp_send_opencv_ffmpeg.dir
+/home/firefly/gitclone/build/CMakeFiles/push_camera_rtmp.dir
+/home/firefly/gitclone/build/CMakeFiles/remote_stream.dir
+/home/firefly/gitclone/build/CMakeFiles/pullVideo.dir
