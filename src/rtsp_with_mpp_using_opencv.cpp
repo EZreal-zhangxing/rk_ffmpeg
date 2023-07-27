@@ -1,8 +1,8 @@
 /**
  * OpenCv捕获数据，通过FFmpeg的编码器将数据发出
 */
-#include "command_mpp.h"
-#include "ffmpeg_with_mpp.h"
+#include "command.h"
+#include "ffmpeg_head.h"
 #include<opencv2/opencv.hpp>
 #include<opencv2/imgproc/imgproc.hpp>
 #include<opencv2/highgui/highgui.hpp>
@@ -12,7 +12,7 @@
 #include <rockchip/mpp_frame.h>
 #include <rockchip/mpp_meta.h>
 
-#include <time.h>
+#include <sys/time.h>
 
 #define MPP_ALIGN(x, a)         (((x)+(a)-1)&~((a)-1))
 using namespace std;
@@ -330,7 +330,12 @@ int send_packet(Command &obj){
     packet->dts = av_rescale_q_rnd(framecount, codecCtx->time_base, stream->time_base, (AVRounding)(AV_ROUND_NEAR_INF | AV_ROUND_NEAR_INF));
     packet->duration = av_rescale_q_rnd(packet->duration, codecCtx->time_base, stream->time_base, (AVRounding)(AV_ROUND_NEAR_INF | AV_ROUND_NEAR_INF));
 
-    if(!strcmp(obj.get_protocol(),"rtsp")){
+     if(!(packet->flags & AV_PKT_FLAG_KEY)){
+        // 在每帧非关键帧前面添加PPS SPS头信息
+        /**
+         * 使用h264_rkmpp编码器时，rtsp/rtmp协议都需要添加PPS
+         * libx264只需要在rtsp协议时添加PPS,rtmp会自动加上
+        */
         int packet_data_size = packet->size;
         u_char frame_data[packet_data_size];
         memcpy(frame_data,packet->data,packet->size);
@@ -504,6 +509,13 @@ void destory_(){
     }
 }
 
+void create_frame(Mat &cvframe){
+    cvframe = cv::Scalar(0,0,0);
+    string temp = "frame " + to_string(framecount);
+    putText(cvframe,temp,(Point){500,500},1,10,(Scalar){255,255,255},2);
+}
+
+
 void cv_test(){
     VideoCapture videoCap;
     videoCap.set(CAP_PROP_FRAME_WIDTH, 1920);//宽度
@@ -529,11 +541,72 @@ void cv_test(){
     videoCap.release();
 }
 
+void cv_test_2(Command &obj){
+	int is_init_encoder = 0,res = 0;
+    struct timeval pre;
+    Mat cvframe(1080,1920,CV_8UC3),yuvframe;
+	while (true)
+	{
+        auto now = av_gettime();
+        create_frame(cvframe);
+        auto create_frame_time = av_gettime();
+        cvtColor(cvframe,yuvframe,COLOR_RGB2YUV_YV12);
+        if(!is_init_encoder){
+            Size size_yuv = yuvframe.size();
+            yuv_width = size_yuv.width;
+            yuv_height = size_yuv.height;
+            
+            yuv_hor_stride = MPP_ALIGN(yuv_width, 16); // 1920
+            yuv_ver_stride = MPP_ALIGN(yuv_height, 16); // 1632
 
+            Size size = cvframe.size();
+            width = size.width;
+            height = size.height;
+            
+            hor_stride = MPP_ALIGN(width, 16); // 1920
+            ver_stride = MPP_ALIGN(height, 16); // 1088
 
-int main(int argc, char * argv[]){
-    // cv_test();
-    Command obj = process_command(argc,argv);
+            image_size = sizeof(unsigned char) * hor_stride *  ver_stride * 3 / 2;
+            cout << " width " << width << endl;
+            cout << " height " << height << endl;
+            cout << " hor_stride " << hor_stride << endl;
+            cout << " ver_stride " << ver_stride << endl;
+			res = init_encoder(obj); //初始化解码器
+            if(res < 0){
+                print_error(__LINE__,res,"init encoder failed!");
+                break;
+            }
+            res = init_data(obj);
+            if(res < 0){
+                print_error(__LINE__,res,"init data failed!");
+                break;
+            }
+            res = init_mpp();
+            if(res < 0){
+                print_error(__LINE__,res,"init mpp failed!");
+                break;
+            }
+			is_init_encoder = 1;
+		}
+		transfer_frame(yuvframe,obj);
+
+        auto end = av_gettime();
+        struct timeval start;
+        gettimeofday(&start,NULL);
+        if(framecount > 1){
+            cout << framecount << ": ";
+            auto c = (start.tv_usec - pre.tv_usec);
+            cout << "["<< start.tv_sec << " :" << start.tv_usec <<"] [ "<<
+              (c <0 ? (1000000 + c) :c)/1000.0  << " ms] send frame use time [ "<< (end - now) / 1000 <<" ms] ";
+            cout << " create frame use time [ "<< (create_frame_time - now) /1000 << " ms]" << endl;
+            
+        }
+        pre = start;
+    }
+
+}
+
+int opencv_capture(Command &obj){
     int res = 0;
     VideoCapture videoCap;
     videoCap.set(CAP_PROP_FRAME_WIDTH, 1920);//宽度
@@ -622,5 +695,13 @@ int main(int argc, char * argv[]){
 FAIL:
     videoCap.release();
     destory_();
+    return 0;
+}
+
+int main(int argc, char * argv[]){
+    // cv_test();
+    Command obj = process_command(argc,argv);
+    // cv_test_2(obj);
+    opencv_capture(obj);
     return 0;
 }

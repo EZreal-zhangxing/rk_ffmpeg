@@ -1,8 +1,8 @@
 /**
  * OpenCv捕获数据，通过FFmpeg的编码器将数据发出
 */
-#include "command_mpp.h"
-#include "ffmpeg_with_mpp.h"
+#include "command.h"
+#include "ffmpeg_head.h"
 #include<opencv2/opencv.hpp>
 #include<opencv2/imgproc/imgproc.hpp>
 #include<opencv2/highgui/highgui.hpp>
@@ -334,7 +334,12 @@ int send_packet(Command &obj){
     packet->dts = av_rescale_q_rnd(framecount, codecCtx->time_base, stream->time_base, (AVRounding)(AV_ROUND_NEAR_INF | AV_ROUND_NEAR_INF));
     packet->duration = av_rescale_q_rnd(packet->duration, codecCtx->time_base, stream->time_base, (AVRounding)(AV_ROUND_NEAR_INF | AV_ROUND_NEAR_INF));
 
-    if(!strcmp(obj.get_protocol(),"rtsp")){
+    if(!(packet->flags & AV_PKT_FLAG_KEY)){
+        // 在每帧非关键帧前面添加PPS SPS头信息
+        /**
+         * 使用h264_rkmpp编码器时，rtsp/rtmp协议都需要添加PPS
+         * libx264只需要在rtsp协议时添加PPS,rtmp会自动加上
+        */
         int packet_data_size = packet->size;
         u_char frame_data[packet_data_size];
         memcpy(frame_data,packet->data,packet->size);
@@ -414,6 +419,7 @@ MPP_RET convert_cvframe_to_drm(cv::Mat &cvframe,AVFrame *& avframe,Command & obj
 
     int is_eoi = mpp_packet_is_eoi(mppPacket);
 
+    const char * temp = ("create time :" +to_string(av_gettime())).c_str();
     if (mppPacket) {
         RKMPPPacketContext *pkt_ctx = (RKMPPPacketContext *)av_mallocz(sizeof(*pkt_ctx));
         pkt_ctx->packet = mppPacket;
@@ -426,7 +432,7 @@ MPP_RET convert_cvframe_to_drm(cv::Mat &cvframe,AVFrame *& avframe,Command & obj
             rkmpp_release_packet, pkt_ctx, AV_BUFFER_FLAG_READONLY);
         packet->pts = mpp_packet_get_pts(mppPacket);
         packet->dts = mpp_packet_get_dts(mppPacket);
-
+        packet->opaque = (void *)temp;
         if (packet->pts <= 0)
             packet->pts = packet->dts;
         if (packet->dts <= 0)
@@ -513,6 +519,12 @@ void destory_(){
     }
 }
 
+void create_frame(Mat &cvframe){
+    cvframe = cv::Scalar(0,0,0);
+    string temp = "frame " + to_string(framecount);
+    putText(cvframe,temp,(Point){500,500},1,10,(Scalar){255,255,255},2);
+}
+
 void cv_test(){
     VideoCapture videoCap;
     videoCap.set(CAP_PROP_FRAME_WIDTH, 1920);//宽度
@@ -527,7 +539,7 @@ void cv_test(){
         return;
     }
 	int is_init_encoder = 0;
-    Mat cvframe,yuvframe;
+    Mat cvframe;
     struct timeval pre;
 	while (videoCap.read(cvframe))
 	{
@@ -556,10 +568,84 @@ void cv_test(){
     videoCap.release();
 }
 
+void cv_test_2(Command &obj){
+	int is_init_encoder = 0,res = 0;
+    struct timeval pre;
+    Mat cvframe(1080,1920,CV_8UC3);
+	while (true)
+	{
+        auto now = av_gettime();
+        create_frame(cvframe);
+        auto create_frame_time = av_gettime();
+        // imshow("video_show", cvframe);
+        // if((waitKey(0) & 0xff) == 27){
+        //     break;
+        // }
+        if(!is_init_encoder){
+            
+            Size size = cvframe.size();
+            width = size.width;
+            height = size.height;
+            
+            hor_stride = MPP_ALIGN(width, 16); // 1920
+            ver_stride = MPP_ALIGN(height, 16); // 1088
 
+            image_size = sizeof(unsigned char) * hor_stride *  ver_stride * 3;
+            cout << " width " << width << endl;
+            cout << " height " << height << endl;
+            cout << " hor_stride " << hor_stride << endl;
+            cout << " ver_stride " << ver_stride << endl;
+			res = init_encoder(obj); //初始化解码器
+            if(res < 0){
+                print_error(__LINE__,res,"init encoder failed!");
+                break;
+            }
+            res = init_data(obj);
+            if(res < 0){
+                print_error(__LINE__,res,"init data failed!");
+                break;
+            }
+            res = init_mpp();
+            if(res < 0){
+                print_error(__LINE__,res,"init mpp failed!");
+                break;
+            }
+			is_init_encoder = 1;
+		}
+		transfer_frame(cvframe,obj);
+
+        auto end = av_gettime();
+        struct timeval start;
+        gettimeofday(&start,NULL);
+        if(framecount > 1){
+            cout << framecount << ": ";
+            time_t nowtime=time(NULL);
+            char tmp[64];
+            strftime(tmp,sizeof(tmp),"%Y-%m-%d %H:%M:%S",localtime(&nowtime));
+            auto c = (start.tv_usec - pre.tv_usec);
+            cout << tmp << " ";
+            cout << "["<< start.tv_sec << " :" << start.tv_usec <<"] [ "<<
+              (c <0 ? (1000000 + c) :c)/1000.0  << " ms] send frame use time [ "<< (end - now) / 1000 <<" ms] ";
+            cout << " create frame use time [ "<< (create_frame_time - now) /1000 << " ms]" << endl;
+            
+        }else{
+            cout << framecount << ": ";
+            time_t nowtime=time(NULL);
+            char tmp[64];
+            strftime(tmp,sizeof(tmp),"%Y-%m-%d %H:%M:%S",localtime(&nowtime));
+            cout << tmp << " ";
+            cout << "["<< start.tv_sec << " :" << start.tv_usec <<"] "<<
+                " send frame use time [ "<< (end - now) / 1000 <<" ms] ";
+            cout << " create frame use time [ "<< (create_frame_time - now) /1000 << " ms]" << endl;
+            
+        }
+        pre = start;
+    }
+
+}
 
 int main(int argc, char * argv[]){
-    // cv_test();
+    
     Command obj = process_command(argc,argv);
     int res = 0;
     VideoCapture videoCap;
@@ -575,7 +661,7 @@ int main(int argc, char * argv[]){
         return -1;
     }
 	int is_init_encoder = 0;
-    Mat cvframe,yuvframe;
+    Mat cvframe;
 	while (videoCap.read(cvframe))
 	{
         auto now = av_gettime();
@@ -590,12 +676,6 @@ int main(int argc, char * argv[]){
         auto convert = av_gettime();
 
 		if(!is_init_encoder){
-            // Size size_yuv = yuvframe.size();
-            // yuv_width = size_yuv.width;
-            // yuv_height = size_yuv.height;
-            
-            // yuv_hor_stride = MPP_ALIGN(yuv_width, 16); // 1920
-            // yuv_ver_stride = MPP_ALIGN(yuv_height, 16); // 1632
             
             Size size = cvframe.size();
             width = size.width;

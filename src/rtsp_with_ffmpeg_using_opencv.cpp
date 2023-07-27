@@ -1,8 +1,8 @@
 /**
  * OpenCv捕获数据，通过FFmpeg的编码器将数据发出
 */
-#include "command_mpp.h"
-#include "ffmpeg_with_mpp.h"
+#include "command.h"
+#include "ffmpeg_head.h"
 #include<opencv2/opencv.hpp>
 #include<opencv2/imgproc/imgproc.hpp>
 #include<opencv2/highgui/highgui.hpp>
@@ -115,7 +115,7 @@ void rkmpp_release_frame(void *opaque, uint8_t *data){
 int init_encoder(Command & obj){
     int res = 0;
     avformat_network_init();
-
+    
     codec = avcodec_find_encoder_by_name("h264_rkmpp");
     if(!codec){
         print_error(__LINE__,-1,"can not find h264_rkmpp encoder!");
@@ -191,6 +191,7 @@ int init_encoder(Command & obj){
     }
     stream->time_base = (AVRational){1,obj.get_fps()}; // 设置帧率
     stream->id = formatCtx->nb_streams - 1; // 设置流的索引
+    stream->codecpar->codec_tag = 0;
 
     res = avcodec_parameters_from_context(stream->codecpar,codecCtx);
     if(res < 0){
@@ -244,10 +245,12 @@ int init_data(Command & obj){
     // 给packet 分配内存
     packet = av_packet_alloc();
 
-    if(!strcmp(obj.get_protocol(),"rtsp")){
-        // 初始化包空间，进行PPS SPS包头填充
-        cExtradata = (uint8_t *)malloc((extra_data_size) * sizeof(uint8_t));
-    }
+    /**
+     * 初始化包空间，进行PPS SPS包头填充
+     * 使用h264_rkmpp编码器时，rtsp/rtmp协议都需要添加PPS
+     * libx264只需要在rtsp协议时添加PPS,rtmp会自动加上
+    */
+    cExtradata = (uint8_t *)malloc((extra_data_size) * sizeof(uint8_t));
 
     frame = av_frame_alloc();//分配空间
     frame->width = width;
@@ -403,8 +406,8 @@ int transfer_frame(cv::Mat &cvframe,Command &obj){
     packet->pts = av_rescale_q_rnd(framecount, codecCtx->time_base, stream->time_base, (AVRounding)(AV_ROUND_NEAR_INF | AV_ROUND_NEAR_INF));
     packet->dts = av_rescale_q_rnd(framecount, codecCtx->time_base, stream->time_base, (AVRounding)(AV_ROUND_NEAR_INF | AV_ROUND_NEAR_INF));
     packet->duration = av_rescale_q_rnd(packet->duration, codecCtx->time_base, stream->time_base, (AVRounding)(AV_ROUND_NEAR_INF | AV_ROUND_NEAR_INF));
-    
-    if(!strcmp(obj.get_protocol(),"rtsp") && !(packet->flags & AV_PKT_FLAG_KEY)){
+
+    if(!(packet->flags & AV_PKT_FLAG_KEY)){
         // 在每帧非关键帧前面添加PPS SPS头信息
         memset(cExtradata,0,extra_data_size*sizeof(uint8_t));
         memcpy(cExtradata, codecCtx->extradata, codecCtx->extradata_size);
